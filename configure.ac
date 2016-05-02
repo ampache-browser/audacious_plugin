@@ -986,6 +986,29 @@ if test "x$USE_QT" = "xyes" -a "x$enable_qtglspectrum" != "xno"; then
     fi
 fi
 
+dnl Ampache Browser
+dnl ===============
+
+AC_ARG_ENABLE(ampache_browser,
+    [AS_HELP_STRING([--disable-ampache_browser], [disable Ampache Browser plugin (default=enabled)])],
+    [enable_ampache_browser=$enableval],
+    [enable_ampache_browser=auto])
+
+have_ampache_browser=no
+
+if test "x$USE_QT" = "xno" -a "x$enable_ampache_browser" = "xyes"; then
+    AC_MSG_ERROR([--enable-ampache_browser cannot be used without --enable-qt])
+fi
+
+if test "x$USE_QT" = "xyes" -a "x$enable_ampache_browser" != "xno"; then
+    PKG_CHECK_MODULES(AMPACHEBROWSER, [ampache_browser], [have_ampache_browser=yes], [have_ampache_browser=no])
+    if test "x$have_ampache_browser" = "xyes"; then
+        GENERAL_PLUGINS="$GENERAL_PLUGINS ampache_browser"
+    elif test "x$enable_ampache_browser" = "xyes"; then
+        AC_MSG_ERROR([Ampache Browser could not be enabled; check config.log])
+    fi
+fi
+
 dnl Mac Media Keys
 dnl ============
 
@@ -1172,6 +1195,7 @@ if test "x$USE_QT" = "xyes" ; then
     echo "  Album Art:                              yes"
     echo "  LyricWiki viewer:                       yes"
     echo "  OpenGL Spectrum Analyzer:               $have_qtglspectrum"
+    echo "  Ampache Browser:                        $have_ampache_browser"
     echo "  Playlist Manager:                       yes"
     echo "  Search Tool:                            yes"
     echo "  Song Info:                              yes"
