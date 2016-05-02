@@ -43,6 +43,7 @@ public:
     ~MainWindow ();
 
 private:
+    QString m_config_name;
     DialogWindows m_dialogs;
     FilterInput * filterInput;
     PlaylistTabs * playlistTabs;
@@ -58,6 +59,8 @@ private:
 
     void closeEvent (QCloseEvent * e);
     void keyPressEvent (QKeyEvent * e);
+
+    void setWindowTitle (const QString & title);
 
     void updateToggles ();
     void setupActions ();
