@@ -43,6 +43,9 @@
 #include "ui_statusbar.h"
 #include "playlist_util.h"
 
+#include "../ui-common/menu-ops.cc"
+#include "../ui-common/menu-ops-gtk.cc"
+
 static const char * const gtkui_defaults[] = {
     "infoarea_show_vis", "TRUE",
     "infoarea_visible", "TRUE",
@@ -545,8 +548,7 @@ static gboolean window_keypress_cb (GtkWidget * widget, GdkEventKey * event)
         {
           case GDK_KEY_ISO_Left_Tab:
           case GDK_KEY_Tab:
-            aud_playlist_set_active ((aud_playlist_get_active () + 1) %
-             aud_playlist_count ());
+            pl_next ();
             break;
 
           default:
@@ -558,8 +560,7 @@ static gboolean window_keypress_cb (GtkWidget * widget, GdkEventKey * event)
         {
           case GDK_KEY_ISO_Left_Tab:
           case GDK_KEY_Tab:
-            aud_playlist_set_active (aud_playlist_get_active () ?
-             aud_playlist_get_active () - 1 : aud_playlist_count () - 1);
+            pl_prev ();
             break;
           default:
             return false;
@@ -597,7 +598,7 @@ static gboolean playlist_keypress_cb (GtkWidget * widget, GdkEventKey * event)
             ui_playlist_notebook_position (aud::to_ptr (aud_playlist_get_active ()), nullptr);
             return true;
         case GDK_KEY_Delete:
-            playlist_delete_selected ();
+            pl_remove_selected ();
             return true;
         case GDK_KEY_Menu:
             popup_menu_rclick (0, event->time);
@@ -609,16 +610,16 @@ static gboolean playlist_keypress_cb (GtkWidget * widget, GdkEventKey * event)
         switch (event->keyval)
         {
         case 'x':
-            playlist_cut ();
+            pl_cut ();
             return true;
         case 'c':
-            playlist_copy ();
+            pl_copy ();
             return true;
         case 'v':
-            playlist_paste ();
+            pl_paste ();
             return true;
         case 'a':
-            aud_playlist_select_all (aud_playlist_get_active (), true);
+            pl_select_all ();
             return true;
         }
 

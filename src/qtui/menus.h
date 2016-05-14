@@ -1,6 +1,6 @@
 /*
- * playlist_util.h
- * Copyright 2010-2011 Michał Lipski and John Lindgren
+ * menus.h
+ * Copyright 2016 John Lindgren
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -17,12 +17,14 @@
  * the use of this software.
  */
 
-#ifndef __PLAYLISTUTIL_H__
-#define __PLAYLISTUTIL_H__
+#ifndef MENUS_H
+#define MENUS_H
 
-GtkWidget * playlist_get_treeview (int playlist);
+class QMenu;
+class QMenuBar;
+class QWidget;
 
-int playlist_count_selected_in_range (int list, int top, int length);
-void playlist_shift (int offset);
+QMenuBar * qtui_build_menubar (QWidget * parent);
+QMenu * qtui_build_pl_menu (QWidget * parent);
 
-#endif
+#endif // MENUS_H

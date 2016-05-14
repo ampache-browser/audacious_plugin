@@ -28,15 +28,19 @@
 #include <libaudqt/volumebutton.h>
 
 #include "filter_input.h"
+#include "info_bar.h"
+#include "menus.h"
 #include "playlist.h"
-#include "time_slider.h"
-#include "status_bar.h"
 #include "playlist_tabs.h"
+#include "status_bar.h"
+#include "time_slider.h"
 #include "tool_bar.h"
 
-#include <QApplication>
-#include <QDockWidget>
 #include <QAction>
+#include <QBoxLayout>
+#include <QCloseEvent>
+#include <QDockWidget>
+#include <QLabel>
 #include <QSettings>
 
 class PluginWidget : public QDockWidget
@@ -126,7 +130,7 @@ MainWindow::MainWindow () :
 
     connect (filterInput, & QLineEdit::textChanged, playlistTabs, & PlaylistTabs::filterTrigger);
 
-    setupActions ();
+    setMenuBar (qtui_build_menubar (this));
     add_dock_plugins ();
 
     if (aud_drct_get_playing ())
