@@ -8,22 +8,17 @@
 
 
 #define AUD_PLUGIN_QT_ONLY
-#include <libaudcore/audstrings.h>
-#include <libaudcore/drct.h>
+
 #include <libaudcore/i18n.h>
-#include <libaudcore/interface.h>
 #include <libaudcore/runtime.h>
 #include <libaudcore/plugin.h>
+#include <libaudcore/playlist.h>
 
-#include "infrastructure/event/delegate.h"
-#include "ui/ui.h"
-#include "application/ampache_browser.h"
+#include "settings.h"
+#include "ampache_browser.h"
 
-
-
-using namespace infrastructure;
-using namespace ui;
-using namespace application;
+using namespace std;
+using namespace ampache_browser;
 
 
 
@@ -37,15 +32,27 @@ public:
     AmpacheBrowserPlugin(): GeneralPlugin(pluginInfo, false) {
     }
 
+    bool init() override;
+
     void cleanup() override;
 
     void* get_qt_widget() override;
 
 private:
-    std::unique_ptr<Ui> myUi = nullptr;
-    std::unique_ptr<AmpacheBrowser> myAmpacheBrowser = nullptr;
+    const string SETTINGS_SECTION = "ampache_browser";
+
+    unique_ptr<Settings> mySettings;
+    unique_ptr<AmpacheBrowser> myAmpacheBrowser;
+
+    void onAmpacheBrowserPlay(vector<string> trackUrls);
+    void onAmpacheBrowserCreatePlaylist(vector<string> trackUrls);
+    void onAmpacheBrowserAddToPlaylist(vector<string> trackUrls);
+
+    void onSettingsChanged();
 
     void onTerminated();
+
+    Index<PlaylistAddItem> createPlaylistItems(const vector<string>& trackUrls);
 };
 
 
@@ -67,18 +74,76 @@ const PluginInfo AmpacheBrowserPlugin::pluginInfo = {
 
 
 
-void AmpacheBrowserPlugin::cleanup() {
-    myAmpacheBrowser->terminated += DELEGATE0(&AmpacheBrowserPlugin::onTerminated);
-    myAmpacheBrowser->requestTermination();
+bool AmpacheBrowserPlugin::init() {
+    mySettings = unique_ptr<Settings>{new Settings{}};
+    mySettings->setBool(Settings::USE_DEMO_SERVER,
+        aud_get_bool(SETTINGS_SECTION.c_str(), Settings::USE_DEMO_SERVER.c_str()));
+    mySettings->setString(Settings::SERVER_URL,
+        string{aud_get_str(SETTINGS_SECTION.c_str(), Settings::SERVER_URL.c_str())});
+    mySettings->setString(Settings::USER_NAME,
+        string{aud_get_str(SETTINGS_SECTION.c_str(), Settings::USER_NAME.c_str())});
+    mySettings->setString(Settings::PASSWORD_HASH,
+        string{aud_get_str(SETTINGS_SECTION.c_str(), Settings::PASSWORD_HASH.c_str())});
+
+    mySettings->connectChanged([this]() { onSettingsChanged(); });
+
+    return GeneralPlugin::init();
 }
 
 
 
-void* AmpacheBrowserPlugin::get_qt_widget()
-{
-    myUi = std::unique_ptr<Ui>{new Ui{}};
-    myAmpacheBrowser = std::unique_ptr<AmpacheBrowser>{new AmpacheBrowser{*myUi}};
-    return myUi->getMainWidget();
+void AmpacheBrowserPlugin::cleanup() {
+    myAmpacheBrowser->requestTermination([this]() {
+
+        // if the body of onTerminated method is defined here destroying of myAmpacheBrowser invalidates the
+        // captured 'this' pointer which causes segfault when accessing mySettings later on; therefore onTerminated
+        // cannot be defined as anonymous
+        onTerminated();
+    });
+}
+
+
+
+void* AmpacheBrowserPlugin::get_qt_widget() {
+    myAmpacheBrowser = unique_ptr<AmpacheBrowser>{new AmpacheBrowser{mySettings.get()}};
+
+    myAmpacheBrowser->connectPlay([this](vector<string> tus) { onAmpacheBrowserPlay(tus); });
+    myAmpacheBrowser->connectCreatePlaylist([this](vector<string> tus) { onAmpacheBrowserCreatePlaylist(tus); });
+    myAmpacheBrowser->connectAddToPlaylist([this](vector<string> tus) { onAmpacheBrowserAddToPlaylist(tus); });
+
+    return myAmpacheBrowser->getMainWidget();
+}
+
+
+
+void AmpacheBrowserPlugin::onAmpacheBrowserPlay(vector<string> trackUrls) {
+    aud_playlist_entry_insert_batch(aud_playlist_get_active(), -1, move(createPlaylistItems(trackUrls)), true);
+}
+
+
+
+void AmpacheBrowserPlugin::onAmpacheBrowserCreatePlaylist(vector<string> trackUrls) {
+    aud_playlist_new();
+    aud_playlist_entry_insert_batch(aud_playlist_get_active(), -1, move(createPlaylistItems(trackUrls)), true);
+}
+
+
+
+void AmpacheBrowserPlugin::onAmpacheBrowserAddToPlaylist(vector<string> trackUrls) {
+    aud_playlist_entry_insert_batch(aud_playlist_get_active(), -1, move(createPlaylistItems(trackUrls)), false);
+}
+
+
+
+void AmpacheBrowserPlugin::onSettingsChanged() {
+    aud_set_bool(SETTINGS_SECTION.c_str(), Settings::USE_DEMO_SERVER.c_str(),
+        mySettings->getBool(Settings::USE_DEMO_SERVER));
+    aud_set_str(SETTINGS_SECTION.c_str(), Settings::SERVER_URL.c_str(),
+        mySettings->getString(Settings::SERVER_URL).c_str());
+    aud_set_str(SETTINGS_SECTION.c_str(), Settings::USER_NAME.c_str(),
+        mySettings->getString(Settings::USER_NAME).c_str());
+    aud_set_str(SETTINGS_SECTION.c_str(), Settings::PASSWORD_HASH.c_str(),
+        mySettings->getString(Settings::PASSWORD_HASH).c_str());
 }
 
 
@@ -86,12 +151,19 @@ void* AmpacheBrowserPlugin::get_qt_widget()
 void AmpacheBrowserPlugin::onTerminated() {
     AUDINFO("Terminating.\n");
 
-    // instance of AmpacheBrowser is destroyed during handling of its event (together with other dependend objects);
-    // the application must ensure that no instance variable of any object that is being destroyed here is accessed
-    // after the handling of this event
     myAmpacheBrowser = nullptr;
+    mySettings = nullptr;
+}
 
-    myUi = nullptr;
+
+
+Index<PlaylistAddItem> AmpacheBrowserPlugin::createPlaylistItems(const vector<string>& trackUrls) {
+    Index<PlaylistAddItem> playlistAddItems;
+    for (auto& trackUrl: trackUrls) {
+        Tuple tuple;
+        playlistAddItems.append(String{trackUrl.c_str()}, move(tuple), nullptr);
+    }
+    return playlistAddItems;
 }
 
 
