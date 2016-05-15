@@ -14,8 +14,8 @@
 #include <libaudcore/plugin.h>
 #include <libaudcore/playlist.h>
 
-#include "settings.h"
-#include "ampache_browser.h"
+#include "ampache_browser/settings.h"
+#include "ampache_browser/ampache_browser.h"
 
 using namespace std;
 using namespace ampache_browser;
