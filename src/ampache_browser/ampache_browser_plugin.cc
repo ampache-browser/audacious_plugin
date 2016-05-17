@@ -16,6 +16,7 @@
 
 #include "ampache_browser/settings.h"
 #include "ampache_browser/ampache_browser.h"
+#include "ampache_browser/qt_application.h"
 
 using namespace std;
 using namespace ampache_browser;
@@ -41,8 +42,9 @@ public:
 private:
     const string SETTINGS_SECTION = "ampache_browser";
 
-    unique_ptr<Settings> mySettings;
     unique_ptr<AmpacheBrowser> myAmpacheBrowser;
+    unique_ptr<Settings> mySettings;
+    unique_ptr<QtApplication> myQtApplication;
 
     void onAmpacheBrowserPlay(vector<string> trackUrls);
     void onAmpacheBrowserCreatePlaylist(vector<string> trackUrls);
@@ -75,7 +77,9 @@ const PluginInfo AmpacheBrowserPlugin::pluginInfo = {
 
 
 bool AmpacheBrowserPlugin::init() {
-    mySettings = unique_ptr<Settings>{new Settings{}};
+    myQtApplication = unique_ptr<QtApplication>{new QtApplication{}};
+
+    mySettings = myQtApplication->getSettings();
     mySettings->setBool(Settings::USE_DEMO_SERVER,
         aud_get_bool(SETTINGS_SECTION.c_str(), Settings::USE_DEMO_SERVER.c_str()));
     mySettings->setString(Settings::SERVER_URL,
@@ -84,8 +88,14 @@ bool AmpacheBrowserPlugin::init() {
         string{aud_get_str(SETTINGS_SECTION.c_str(), Settings::USER_NAME.c_str())});
     mySettings->setString(Settings::PASSWORD_HASH,
         string{aud_get_str(SETTINGS_SECTION.c_str(), Settings::PASSWORD_HASH.c_str())});
-
     mySettings->connectChanged([this]() { onSettingsChanged(); });
+
+    myAmpacheBrowser = myQtApplication->getAmpacheBrowser();
+    myAmpacheBrowser->connectPlay([this](vector<string> trackUrls) { onAmpacheBrowserPlay(trackUrls); });
+    myAmpacheBrowser->connectCreatePlaylist(
+        [this](vector<string> trackUrls) { onAmpacheBrowserCreatePlaylist(trackUrls); });
+    myAmpacheBrowser->connectAddToPlaylist(
+        [this](vector<string> trackUrls) { onAmpacheBrowserAddToPlaylist(trackUrls); });
 
     return GeneralPlugin::init();
 }
@@ -105,13 +115,8 @@ void AmpacheBrowserPlugin::cleanup() {
 
 
 void* AmpacheBrowserPlugin::get_qt_widget() {
-    myAmpacheBrowser = unique_ptr<AmpacheBrowser>{new AmpacheBrowser{mySettings.get()}};
-
-    myAmpacheBrowser->connectPlay([this](vector<string> tus) { onAmpacheBrowserPlay(tus); });
-    myAmpacheBrowser->connectCreatePlaylist([this](vector<string> tus) { onAmpacheBrowserCreatePlaylist(tus); });
-    myAmpacheBrowser->connectAddToPlaylist([this](vector<string> tus) { onAmpacheBrowserAddToPlaylist(tus); });
-
-    return myAmpacheBrowser->getMainWidget();
+    myAmpacheBrowser->run();
+    return myQtApplication->getMainWidget();
 }
 
 
@@ -153,6 +158,7 @@ void AmpacheBrowserPlugin::onTerminated() {
 
     myAmpacheBrowser = nullptr;
     mySettings = nullptr;
+    myQtApplication = nullptr;
 }
 
 
