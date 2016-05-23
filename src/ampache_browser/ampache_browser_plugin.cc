@@ -54,7 +54,8 @@ private:
 
     void onTerminated();
 
-    Index<PlaylistAddItem> createPlaylistItems(const vector<string>& trackUrls);
+    static Index<PlaylistAddItem> createPlaylistItems(const vector<string>& trackUrls);
+    static int getVerbosity();
 };
 
 
@@ -88,6 +89,7 @@ bool AmpacheBrowserPlugin::init() {
         string{aud_get_str(SETTINGS_SECTION.c_str(), Settings::USER_NAME.c_str())});
     mySettings->setString(Settings::PASSWORD_HASH,
         string{aud_get_str(SETTINGS_SECTION.c_str(), Settings::PASSWORD_HASH.c_str())});
+    mySettings->setInt(Settings::LOGGING_VERBOSITY, getVerbosity());
     mySettings->connectChanged([this]() { onSettingsChanged(); });
 
     myAmpacheBrowser = myQtApplication->getAmpacheBrowser();
@@ -170,6 +172,23 @@ Index<PlaylistAddItem> AmpacheBrowserPlugin::createPlaylistItems(const vector<st
         playlistAddItems.append(String{trackUrl.c_str()}, move(tuple), nullptr);
     }
     return playlistAddItems;
+}
+
+
+
+int AmpacheBrowserPlugin::getVerbosity() {
+    int verbosity = 3;
+
+    auto verbosityEnv = getenv("AMPACHE_BROWSER_PLUGIN_VERBOSITY");
+    if (verbosityEnv != nullptr) {
+        try {
+            verbosity = stoi(verbosityEnv);
+        } catch (const invalid_argument&) {
+        } catch (const out_of_range&) {
+        }
+    }
+
+    return verbosity;
 }
 
 
