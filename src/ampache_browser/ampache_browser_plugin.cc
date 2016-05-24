@@ -42,9 +42,9 @@ public:
 private:
     const string SETTINGS_SECTION = "ampache_browser";
 
-    unique_ptr<AmpacheBrowser> myAmpacheBrowser;
-    unique_ptr<Settings> mySettings;
     unique_ptr<QtApplication> myQtApplication;
+    AmpacheBrowser* myAmpacheBrowser = nullptr;
+    Settings* mySettings = nullptr;
 
     void onAmpacheBrowserPlay(vector<string> trackUrls);
     void onAmpacheBrowserCreatePlaylist(vector<string> trackUrls);
@@ -52,7 +52,7 @@ private:
 
     void onSettingsChanged();
 
-    void onTerminated();
+    void onFinished();
 
     static Index<PlaylistAddItem> createPlaylistItems(const vector<string>& trackUrls);
     static int getVerbosity();
@@ -80,7 +80,7 @@ const PluginInfo AmpacheBrowserPlugin::pluginInfo = {
 bool AmpacheBrowserPlugin::init() {
     myQtApplication = unique_ptr<QtApplication>{new QtApplication{}};
 
-    mySettings = myQtApplication->getSettings();
+    mySettings = &myQtApplication->getSettings();
     mySettings->setBool(Settings::USE_DEMO_SERVER,
         aud_get_bool(SETTINGS_SECTION.c_str(), Settings::USE_DEMO_SERVER.c_str()));
     mySettings->setString(Settings::SERVER_URL,
@@ -92,7 +92,7 @@ bool AmpacheBrowserPlugin::init() {
     mySettings->setInt(Settings::LOGGING_VERBOSITY, getVerbosity());
     mySettings->connectChanged([this]() { onSettingsChanged(); });
 
-    myAmpacheBrowser = myQtApplication->getAmpacheBrowser();
+    myAmpacheBrowser = &myQtApplication->getAmpacheBrowser();
     myAmpacheBrowser->connectPlay([this](vector<string> trackUrls) { onAmpacheBrowserPlay(trackUrls); });
     myAmpacheBrowser->connectCreatePlaylist(
         [this](vector<string> trackUrls) { onAmpacheBrowserCreatePlaylist(trackUrls); });
@@ -105,19 +105,19 @@ bool AmpacheBrowserPlugin::init() {
 
 
 void AmpacheBrowserPlugin::cleanup() {
-    myAmpacheBrowser->requestTermination([this]() {
+    myQtApplication->finishRequest([this]() {
 
-        // if the body of onTerminated method is defined here destroying of myAmpacheBrowser invalidates the
-        // captured 'this' pointer which causes segfault when accessing mySettings later on; therefore onTerminated
+        // if the body of onFinished method is defined here destroying of myQtApplication invalidates the
+        // captured 'this' pointer which causes segfault when accessing mySettings later on; therefore onFinished
         // cannot be defined as anonymous
-        onTerminated();
+        onFinished();
     });
 }
 
 
 
 void* AmpacheBrowserPlugin::get_qt_widget() {
-    myAmpacheBrowser->run();
+    myQtApplication->run();
     return myQtApplication->getMainWidget();
 }
 
@@ -155,11 +155,9 @@ void AmpacheBrowserPlugin::onSettingsChanged() {
 
 
 
-void AmpacheBrowserPlugin::onTerminated() {
-    AUDINFO("Terminating.\n");
+void AmpacheBrowserPlugin::onFinished() {
+    AUDINFO("Finishing.\n");
 
-    myAmpacheBrowser = nullptr;
-    mySettings = nullptr;
     myQtApplication = nullptr;
 }
 
