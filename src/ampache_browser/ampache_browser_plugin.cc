@@ -40,7 +40,8 @@ public:
     void* get_qt_widget() override;
 
 private:
-    const string SETTINGS_SECTION = "ampache_browser";
+    const char* SETTINGS_SECTION = "ampache_browser";
+    const char* AUDACIOUS_SETTINGS_SECTION = "audacious";
 
     unique_ptr<QtApplication> myQtApplication;
     AmpacheBrowser* myAmpacheBrowser = nullptr;
@@ -81,15 +82,23 @@ bool AmpacheBrowserPlugin::init() {
     myQtApplication = unique_ptr<QtApplication>{new QtApplication{}};
 
     mySettings = &myQtApplication->getSettings();
-    mySettings->setBool(Settings::USE_DEMO_SERVER,
-        aud_get_bool(SETTINGS_SECTION.c_str(), Settings::USE_DEMO_SERVER.c_str()));
-    mySettings->setString(Settings::SERVER_URL,
-        string{aud_get_str(SETTINGS_SECTION.c_str(), Settings::SERVER_URL.c_str())});
-    mySettings->setString(Settings::USER_NAME,
-        string{aud_get_str(SETTINGS_SECTION.c_str(), Settings::USER_NAME.c_str())});
+    mySettings->setBool(Settings::USE_DEMO_SERVER, aud_get_bool(SETTINGS_SECTION, Settings::USE_DEMO_SERVER.c_str()));
+    mySettings->setString(Settings::SERVER_URL, string{aud_get_str(SETTINGS_SECTION, Settings::SERVER_URL.c_str())});
+    mySettings->setString(Settings::USER_NAME, string{aud_get_str(SETTINGS_SECTION, Settings::USER_NAME.c_str())});
     mySettings->setString(Settings::PASSWORD_HASH,
-        string{aud_get_str(SETTINGS_SECTION.c_str(), Settings::PASSWORD_HASH.c_str())});
+        string{aud_get_str(SETTINGS_SECTION, Settings::PASSWORD_HASH.c_str())});
     mySettings->setInt(Settings::LOGGING_VERBOSITY, getVerbosity());
+
+    if (aud_get_bool(AUDACIOUS_SETTINGS_SECTION, "use_proxy")) {
+        mySettings->setString(Settings::PROXY_HOST, string{aud_get_str(AUDACIOUS_SETTINGS_SECTION, "proxy_host")});
+        mySettings->setInt(Settings::PROXY_PORT, aud_get_int(AUDACIOUS_SETTINGS_SECTION, "proxy_port"));
+        if (aud_get_bool(AUDACIOUS_SETTINGS_SECTION, "use_proxy_auth")) {
+            mySettings->setString(Settings::PROXY_USER, string{aud_get_str(AUDACIOUS_SETTINGS_SECTION, "proxy_user")});
+            mySettings->setString(Settings::PROXY_PASSWORD,
+                string{aud_get_str(AUDACIOUS_SETTINGS_SECTION, "proxy_pass")});
+        }
+    }
+
     mySettings->connectChanged([this]() { onSettingsChanged(); });
 
     myAmpacheBrowser = &myQtApplication->getAmpacheBrowser();
@@ -143,13 +152,10 @@ void AmpacheBrowserPlugin::onAmpacheBrowserAddToPlaylist(vector<string> trackUrl
 
 
 void AmpacheBrowserPlugin::onSettingsChanged() {
-    aud_set_bool(SETTINGS_SECTION.c_str(), Settings::USE_DEMO_SERVER.c_str(),
-        mySettings->getBool(Settings::USE_DEMO_SERVER));
-    aud_set_str(SETTINGS_SECTION.c_str(), Settings::SERVER_URL.c_str(),
-        mySettings->getString(Settings::SERVER_URL).c_str());
-    aud_set_str(SETTINGS_SECTION.c_str(), Settings::USER_NAME.c_str(),
-        mySettings->getString(Settings::USER_NAME).c_str());
-    aud_set_str(SETTINGS_SECTION.c_str(), Settings::PASSWORD_HASH.c_str(),
+    aud_set_bool(SETTINGS_SECTION, Settings::USE_DEMO_SERVER.c_str(), mySettings->getBool(Settings::USE_DEMO_SERVER));
+    aud_set_str(SETTINGS_SECTION, Settings::SERVER_URL.c_str(), mySettings->getString(Settings::SERVER_URL).c_str());
+    aud_set_str(SETTINGS_SECTION, Settings::USER_NAME.c_str(), mySettings->getString(Settings::USER_NAME).c_str());
+    aud_set_str(SETTINGS_SECTION, Settings::PASSWORD_HASH.c_str(),
         mySettings->getString(Settings::PASSWORD_HASH).c_str());
 }
 
