@@ -13,12 +13,14 @@
 #include <libaudcore/runtime.h>
 #include <libaudcore/plugin.h>
 #include <libaudcore/playlist.h>
+#include <libaudcore/vfs_async.h>
 
 #include "ampache_browser/settings.h"
 #include "ampache_browser/ampache_browser.h"
 #include "ampache_browser/qt_application.h"
 
 using namespace std;
+using namespace placeholders;
 using namespace ampache_browser;
 
 
@@ -55,17 +57,26 @@ private:
 
     void onFinished();
 
+    void networkRequest(const std::string& url, QtApplication::NetworkRequestCb& networkRequestCb);
+
     static Index<PlaylistAddItem> createPlaylistItems(const vector<string>& trackUrls);
     static int getVerbosity();
 };
 
 
 
+void onVfsAsyncFileGetContentsCb(const char* url, const Index<char>& buffer, void* userData) {
+    auto& callback = *reinterpret_cast<QtApplication::NetworkRequestCb*>(userData);
+    callback(url, vector<char>(buffer.begin(), buffer.end()));
+}
+
+
+
 const char AmpacheBrowserPlugin::about[] =
     N_("Ampache Browser\n\n"
-        "Ampache client for Audacious.\n\n"
-        "License: GNU GPLv3\n"
-        "Copyright (C) Róbert Čerňanský\n");
+       "Ampache client for Audacious.\n\n"
+       "License: GNU GPLv3\n"
+       "Copyright (C) Róbert Čerňanský\n");
 
 
 
@@ -80,6 +91,7 @@ const PluginInfo AmpacheBrowserPlugin::pluginInfo = {
 
 bool AmpacheBrowserPlugin::init() {
     myQtApplication = unique_ptr<QtApplication>{new QtApplication{}};
+    myQtApplication->setNetworkRequestFunction(bind(&AmpacheBrowserPlugin::networkRequest, this, _1, _2));
 
     mySettings = &myQtApplication->getSettings();
     mySettings->setBool(Settings::USE_DEMO_SERVER, aud_get_bool(SETTINGS_SECTION, Settings::USE_DEMO_SERVER.c_str()));
@@ -89,24 +101,12 @@ bool AmpacheBrowserPlugin::init() {
         string{aud_get_str(SETTINGS_SECTION, Settings::PASSWORD_HASH.c_str())});
     mySettings->setInt(Settings::LOGGING_VERBOSITY, getVerbosity());
 
-    if (aud_get_bool(AUDACIOUS_SETTINGS_SECTION, "use_proxy")) {
-        mySettings->setString(Settings::PROXY_HOST, string{aud_get_str(AUDACIOUS_SETTINGS_SECTION, "proxy_host")});
-        mySettings->setInt(Settings::PROXY_PORT, aud_get_int(AUDACIOUS_SETTINGS_SECTION, "proxy_port"));
-        if (aud_get_bool(AUDACIOUS_SETTINGS_SECTION, "use_proxy_auth")) {
-            mySettings->setString(Settings::PROXY_USER, string{aud_get_str(AUDACIOUS_SETTINGS_SECTION, "proxy_user")});
-            mySettings->setString(Settings::PROXY_PASSWORD,
-                string{aud_get_str(AUDACIOUS_SETTINGS_SECTION, "proxy_pass")});
-        }
-    }
-
-    mySettings->connectChanged([this]() { onSettingsChanged(); });
+    mySettings->connectChanged(bind(&AmpacheBrowserPlugin::onSettingsChanged, this));
 
     myAmpacheBrowser = &myQtApplication->getAmpacheBrowser();
-    myAmpacheBrowser->connectPlay([this](vector<string> trackUrls) { onAmpacheBrowserPlay(trackUrls); });
-    myAmpacheBrowser->connectCreatePlaylist(
-        [this](vector<string> trackUrls) { onAmpacheBrowserCreatePlaylist(trackUrls); });
-    myAmpacheBrowser->connectAddToPlaylist(
-        [this](vector<string> trackUrls) { onAmpacheBrowserAddToPlaylist(trackUrls); });
+    myAmpacheBrowser->connectPlay(bind(&AmpacheBrowserPlugin::onAmpacheBrowserPlay, this, _1));
+    myAmpacheBrowser->connectCreatePlaylist(bind(&AmpacheBrowserPlugin::onAmpacheBrowserCreatePlaylist, this, _1));
+    myAmpacheBrowser->connectAddToPlaylist(bind(&AmpacheBrowserPlugin::onAmpacheBrowserAddToPlaylist, this, _1));
 
     return GeneralPlugin::init();
 }
@@ -114,13 +114,10 @@ bool AmpacheBrowserPlugin::init() {
 
 
 void AmpacheBrowserPlugin::cleanup() {
-    myQtApplication->finishRequest([this]() {
-
-        // if the body of onFinished method is defined here destroying of myQtApplication invalidates the
-        // captured 'this' pointer which causes segfault when accessing mySettings later on; therefore onFinished
-        // cannot be defined as anonymous
-        onFinished();
-    });
+    // if the body of onFinished method would be defined here (as anonymous function), destroying of myQtApplication
+    // would invalidate the captured 'this' pointer which would cause segfault when accessing instance variables later
+    // on; therefore onFinished cannot be defined as anonymous
+    myQtApplication->finishRequest(bind(&AmpacheBrowserPlugin::onFinished, this));
 }
 
 
@@ -163,8 +160,13 @@ void AmpacheBrowserPlugin::onSettingsChanged() {
 
 void AmpacheBrowserPlugin::onFinished() {
     AUDINFO("Finishing.\n");
-
     myQtApplication = nullptr;
+}
+
+
+
+void AmpacheBrowserPlugin::networkRequest(const string& url, QtApplication::NetworkRequestCb& networkRequestCb) {
+    vfs_async_file_get_contents(url.c_str(), onVfsAsyncFileGetContentsCb, &networkRequestCb);
 }
 
 
