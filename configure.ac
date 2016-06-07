@@ -1005,7 +1005,7 @@ if test "x$USE_QT" = "xno" -a "x$enable_ampache_browser" = "xyes"; then
 fi
 
 if test "x$USE_QT" = "xyes" -a "x$enable_ampache_browser" != "xno"; then
-    PKG_CHECK_MODULES(AMPACHEBROWSER, [ampache_browser], [have_ampache_browser=yes], [have_ampache_browser=no])
+    PKG_CHECK_MODULES(AMPACHEBROWSER, [ampache_browser_0 >= 0.0], [have_ampache_browser=yes], [have_ampache_browser=no])
     if test "x$have_ampache_browser" = "xyes"; then
         GENERAL_PLUGINS="$GENERAL_PLUGINS ampache_browser"
     elif test "x$enable_ampache_browser" = "xyes"; then
