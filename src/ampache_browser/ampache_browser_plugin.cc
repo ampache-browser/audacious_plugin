@@ -13,9 +13,9 @@
 #include <libaudcore/playlist.h>
 #include <libaudcore/vfs_async.h>
 
-#include "ampache_browser/settings.h"
-#include "ampache_browser/ampache_browser.h"
-#include "ampache_browser/qt_application.h"
+#include <ampache_browser/settings.h>
+#include <ampache_browser/ampache_browser.h>
+#include <ampache_browser/qt_application.h>
 
 using namespace std;
 using namespace placeholders;
