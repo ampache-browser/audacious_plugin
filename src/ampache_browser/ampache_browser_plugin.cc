@@ -7,8 +7,6 @@
 
 
 
-#define AUD_PLUGIN_QT_ONLY
-
 #include <libaudcore/i18n.h>
 #include <libaudcore/runtime.h>
 #include <libaudcore/plugin.h>
@@ -84,7 +82,8 @@ const PluginInfo AmpacheBrowserPlugin::pluginInfo = {
     N_("Ampache Browser"),
     PACKAGE,
     about,
-    nullptr
+    nullptr,
+    PluginQtOnly
 };
 
 
