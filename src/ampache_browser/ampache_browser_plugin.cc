@@ -71,7 +71,7 @@ private:
 
 void onVfsAsyncFileGetContentsCb(const char* url, const Index<char>& buffer, void* userData) {
     auto& callback = *reinterpret_cast<ApplicationQt::NetworkRequestCb*>(userData);
-    callback(url, vector<char>(buffer.begin(), buffer.end()));
+    callback(url, buffer.begin(), buffer.len());
 }
 
 
@@ -103,7 +103,7 @@ bool AmpacheBrowserPlugin::init() {
     myAmpacheBrowser->connectCreatePlaylist(bind(&AmpacheBrowserPlugin::onAmpacheBrowserCreatePlaylist, this, _1));
     myAmpacheBrowser->connectAddToPlaylist(bind(&AmpacheBrowserPlugin::onAmpacheBrowserAddToPlaylist, this, _1));
 
-    return GeneralPlugin::init();
+    return true;
 }
 
 
