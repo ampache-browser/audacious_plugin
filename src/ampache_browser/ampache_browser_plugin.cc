@@ -15,7 +15,7 @@
 
 #include <ampache_browser/settings.h>
 #include <ampache_browser/ampache_browser.h>
-#include <ampache_browser/qt_application.h>
+#include <ampache_browser/application_qt.h>
 
 using namespace std;
 using namespace placeholders;
@@ -28,9 +28,15 @@ class AmpacheBrowserPlugin: public GeneralPlugin {
 public:
     static const char about[];
 
-    static const PluginInfo pluginInfo;
+    static constexpr PluginInfo pluginInfo = {
+        N_("Ampache Browser"),
+        PACKAGE,
+        about,
+        nullptr,
+        PluginQtOnly
+    };
 
-    AmpacheBrowserPlugin(): GeneralPlugin(pluginInfo, false) {
+    constexpr AmpacheBrowserPlugin(): GeneralPlugin(pluginInfo, false) {
     }
 
     bool init() override;
@@ -43,19 +49,19 @@ private:
     const char* SETTINGS_SECTION = "ampache_browser";
     const char* AUDACIOUS_SETTINGS_SECTION = "audacious";
 
-    unique_ptr<QtApplication> myQtApplication;
+    unique_ptr<ApplicationQt> myApplicationQt;
     AmpacheBrowser* myAmpacheBrowser = nullptr;
     Settings* mySettings = nullptr;
 
-    void onAmpacheBrowserPlay(vector<string> trackUrls);
-    void onAmpacheBrowserCreatePlaylist(vector<string> trackUrls);
-    void onAmpacheBrowserAddToPlaylist(vector<string> trackUrls);
+    void onAmpacheBrowserPlay(const vector<string>& trackUrls);
+    void onAmpacheBrowserCreatePlaylist(const vector<string>& trackUrls);
+    void onAmpacheBrowserAddToPlaylist(const vector<string>& trackUrls);
 
     void onSettingsChanged();
 
     void onFinished();
 
-    void networkRequest(const std::string& url, QtApplication::NetworkRequestCb& networkRequestCb);
+    void networkRequest(const std::string& url, ApplicationQt::NetworkRequestCb& networkRequestCb);
 
     static Index<PlaylistAddItem> createPlaylistItems(const vector<string>& trackUrls);
     static int getVerbosity();
@@ -64,7 +70,7 @@ private:
 
 
 void onVfsAsyncFileGetContentsCb(const char* url, const Index<char>& buffer, void* userData) {
-    auto& callback = *reinterpret_cast<QtApplication::NetworkRequestCb*>(userData);
+    auto& callback = *reinterpret_cast<ApplicationQt::NetworkRequestCb*>(userData);
     callback(url, vector<char>(buffer.begin(), buffer.end()));
 }
 
@@ -78,21 +84,11 @@ const char AmpacheBrowserPlugin::about[] =
 
 
 
-const PluginInfo AmpacheBrowserPlugin::pluginInfo = {
-    N_("Ampache Browser"),
-    PACKAGE,
-    about,
-    nullptr,
-    PluginQtOnly
-};
-
-
-
 bool AmpacheBrowserPlugin::init() {
-    myQtApplication = unique_ptr<QtApplication>{new QtApplication{}};
-    myQtApplication->setNetworkRequestFunction(bind(&AmpacheBrowserPlugin::networkRequest, this, _1, _2));
+    myApplicationQt = unique_ptr<ApplicationQt>{new ApplicationQt{}};
+    myApplicationQt->setNetworkRequestFunction(bind(&AmpacheBrowserPlugin::networkRequest, this, _1, _2));
 
-    mySettings = &myQtApplication->getSettings();
+    mySettings = &myApplicationQt->getSettings();
     mySettings->setBool(Settings::USE_DEMO_SERVER, aud_get_bool(SETTINGS_SECTION, Settings::USE_DEMO_SERVER.c_str()));
     mySettings->setString(Settings::SERVER_URL, string{aud_get_str(SETTINGS_SECTION, Settings::SERVER_URL.c_str())});
     mySettings->setString(Settings::USER_NAME, string{aud_get_str(SETTINGS_SECTION, Settings::USER_NAME.c_str())});
@@ -102,7 +98,7 @@ bool AmpacheBrowserPlugin::init() {
 
     mySettings->connectChanged(bind(&AmpacheBrowserPlugin::onSettingsChanged, this));
 
-    myAmpacheBrowser = &myQtApplication->getAmpacheBrowser();
+    myAmpacheBrowser = &myApplicationQt->getAmpacheBrowser();
     myAmpacheBrowser->connectPlay(bind(&AmpacheBrowserPlugin::onAmpacheBrowserPlay, this, _1));
     myAmpacheBrowser->connectCreatePlaylist(bind(&AmpacheBrowserPlugin::onAmpacheBrowserCreatePlaylist, this, _1));
     myAmpacheBrowser->connectAddToPlaylist(bind(&AmpacheBrowserPlugin::onAmpacheBrowserAddToPlaylist, this, _1));
@@ -113,35 +109,35 @@ bool AmpacheBrowserPlugin::init() {
 
 
 void AmpacheBrowserPlugin::cleanup() {
-    // if the body of onFinished method would be defined here (as anonymous function), destroying of myQtApplication
+    // if the body of onFinished method would be defined here (as anonymous function), destroying of myApplicationQt
     // would invalidate the captured 'this' pointer which would cause segfault when accessing instance variables later
     // on; therefore onFinished cannot be defined as anonymous
-    myQtApplication->finishRequest(bind(&AmpacheBrowserPlugin::onFinished, this));
+    myApplicationQt->finishRequest(bind(&AmpacheBrowserPlugin::onFinished, this));
 }
 
 
 
 void* AmpacheBrowserPlugin::get_qt_widget() {
-    myQtApplication->run();
-    return myQtApplication->getMainWidget();
+    myApplicationQt->run();
+    return myApplicationQt->getMainWidget();
 }
 
 
 
-void AmpacheBrowserPlugin::onAmpacheBrowserPlay(vector<string> trackUrls) {
+void AmpacheBrowserPlugin::onAmpacheBrowserPlay(const vector<string>& trackUrls) {
     aud_playlist_entry_insert_batch(aud_playlist_get_active(), -1, move(createPlaylistItems(trackUrls)), true);
 }
 
 
 
-void AmpacheBrowserPlugin::onAmpacheBrowserCreatePlaylist(vector<string> trackUrls) {
+void AmpacheBrowserPlugin::onAmpacheBrowserCreatePlaylist(const vector<string>& trackUrls) {
     aud_playlist_new();
     aud_playlist_entry_insert_batch(aud_playlist_get_active(), -1, move(createPlaylistItems(trackUrls)), true);
 }
 
 
 
-void AmpacheBrowserPlugin::onAmpacheBrowserAddToPlaylist(vector<string> trackUrls) {
+void AmpacheBrowserPlugin::onAmpacheBrowserAddToPlaylist(const vector<string>& trackUrls) {
     aud_playlist_entry_insert_batch(aud_playlist_get_active(), -1, move(createPlaylistItems(trackUrls)), false);
 }
 
@@ -159,12 +155,12 @@ void AmpacheBrowserPlugin::onSettingsChanged() {
 
 void AmpacheBrowserPlugin::onFinished() {
     AUDINFO("Finishing.\n");
-    myQtApplication = nullptr;
+    myApplicationQt = nullptr;
 }
 
 
 
-void AmpacheBrowserPlugin::networkRequest(const string& url, QtApplication::NetworkRequestCb& networkRequestCb) {
+void AmpacheBrowserPlugin::networkRequest(const string& url, ApplicationQt::NetworkRequestCb& networkRequestCb) {
     vfs_async_file_get_contents(url.c_str(), onVfsAsyncFileGetContentsCb, &networkRequestCb);
 }
 
