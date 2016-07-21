@@ -186,13 +186,13 @@ bool oss_hardware_present()
 {
     int mixerfd;
 
-    CHECK_NOISY(mixerfd = open, DEFAULT_MIXER, O_RDWR, 0);
+    CHECK(mixerfd = open, DEFAULT_MIXER, O_RDWR, 0);
 
 #ifdef SNDCTL_SYSINFO
     oss_sysinfo sysinfo;
     memset(&sysinfo, 0, sizeof sysinfo);
     CHECK(ioctl, mixerfd, SNDCTL_SYSINFO, &sysinfo);
-    CHECK_NOISY(oss_probe_for_adev, &sysinfo);
+    CHECK(oss_probe_for_adev, &sysinfo);
 #endif
 
     close(mixerfd);

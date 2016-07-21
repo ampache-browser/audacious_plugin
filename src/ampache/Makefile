@@ -5,11 +5,9 @@
 #
 # Copyright (C) 2015 - 2016 Róbert Čerňanský
 
+PLUGIN = ampache${PLUGIN_SUFFIX}
 
-
-PLUGIN = ampache_browser${PLUGIN_SUFFIX}
-
-SRCS = ampache_browser_plugin.cc
+SRCS = ampache.cc
 
 include ../../buildsys.mk
 include ../../extra.mk
@@ -17,6 +15,6 @@ include ../../extra.mk
 plugindir := ${plugindir}/${GENERAL_PLUGIN_DIR}
 
 LD = ${CXX}
-CPPFLAGS += -I../.. -I. ${QT_CFLAGS} ${QTMULTIMEDIA_CFLAGS} ${AMPACHEBROWSER_CFLAGS}
+CPPFLAGS += -I../.. -I. ${QT_CFLAGS} ${AMPACHE_CFLAGS}
 CFLAGS += ${PLUGIN_CFLAGS}
-LIBS += ${QT_LIBS} ${QTMULTIMEDIA_LIBS} ${AMPACHEBROWSER_LIBS}
+LIBS += ${QT_LIBS} ${AMPACHE_LIBS}
